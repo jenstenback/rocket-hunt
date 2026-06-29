@@ -2,26 +2,35 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.AI;
 
-/* ==========================================================================================
+/* =====================================================================================================================
  * SCRIPT: HealthSystem.cs
- * DOEL: Universeel gezondheidssysteem voor zowel de Speler als de Vijanden.
- * ========================================================================================== */
+ * DOEL: Universeel levenssysteem (HP) voor zowel de Speler als alle Vijanden in het spel.
+ * 
+ * EXAMEN / PRESENTATIE UITLEG:
+ * 1. Component Hergebruik (Modulariteit): Dit ene script wordt op zowel de speler als op aliens gezet. We kijken via 
+ *    'CompareTag("Player")' of het om de speler gaat of om een vijand. Dit scheelt dubbele code schrijven!
+ * 2. Unity Events: Via 'OnHealthChanged' sturen we een seintje naar de User Interface zodra HP verandert. Hierdoor 
+ *    hoeft dit script niet zelf UI-balkjes te tekenen, wat zorgt voor een schone architectuur.
+ * 3. Automatische UI & Loot Koppeling: Als een vijand doodgaat (Die), maken we via code dynamically een muntje ('CoinPickup')
+ *    aan en melden we aan de 'WaveManager' dat er een alien minder is.
+ * ===================================================================================================================== */
 
 public class HealthSystem : MonoBehaviour
 {
     [Header("Gezondheid Instellingen")]
-    public int maxHealth = 100;
-    public int currentHealth;
+    public int maxHealth = 100;          // Het maximale aantal levenspunten dat dit object kan hebben.
+    public int currentHealth;            // Het huidige aantal levenspunten.
 
     [Header("Visuele Effecten")]
-    public GameObject deathParticlesPrefab;
+    public GameObject deathParticlesPrefab; // Extra particle effect bij overlijden.
 
     [Header("Gebeurtenissen (Unity Events)")]
-    public UnityEvent<int, int> OnHealthChanged;
-    public UnityEvent OnDeath;
+    public UnityEvent<int, int> OnHealthChanged; // Wordt aangeroepen (met currentHP en maxHP) als schade wordt genomen.
+    public UnityEvent OnDeath;                   // Wordt aangeroepen op het moment dat currentHP op 0 belandt.
 
-    public bool isDead = false;
+    public bool isDead = false;          // Voorkomt dat een object meerdere keren kan sterven.
 
+    // Statische cache voor bloed-effecten zodat we ze niet elke keer opnieuw van de harde schijf hoeven te laden (Optimalisatie!)
     private static GameObject cachedBloodSpray;
     private static GameObject cachedBloodExtra;
     private static GameObject cachedBloodChunks;
@@ -31,6 +40,7 @@ public class HealthSystem : MonoBehaviour
     {
         if (!prefabsCached)
         {
+            // Laad de prefabs vanuit de 'Resources' map in het Unity project.
             cachedBloodSpray = Resources.Load<GameObject>("BloodSprayFX");
             cachedBloodExtra = Resources.Load<GameObject>("BloodSprayFX_Extra");
             cachedBloodChunks = Resources.Load<GameObject>("ChunkParticleSystem");
@@ -41,9 +51,12 @@ public class HealthSystem : MonoBehaviour
     void Start()
     {
         EnsurePrefabsCached();
-        currentHealth = maxHealth;
-        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        currentHealth = maxHealth; // Begin met volle gezondheid.
+        OnHealthChanged?.Invoke(currentHealth, maxHealth); // Update de healthbars bij start.
 
+        // EXAMEN TIP (Automatische UI koppeling):
+        // Als dit script op een vijand zit (niet op de speler), voegen we automatisch een 3D zwevende 
+        // levensbalk (EnemyHealthBar) toe boven het hoofd van het monster!
         if (GetComponent<AstronautController>() == null && !CompareTag("Player"))
         {
             if (GetComponent<EnemyHealthBar>() == null)
@@ -53,32 +66,37 @@ public class HealthSystem : MonoBehaviour
         }
     }
 
+    // Wordt aangeroepen wanneer een kogel of vijand schade toebrengt aan dit object.
     public void TakeDamage(int amount)
     {
-        if (isDead) return;
+        if (isDead) return; // Als we al dood zijn, negeer extra schade.
 
         currentHealth -= amount;
-        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth); // Zorgt dat HP nooit onder 0 of boven maxHealth komt.
 
+        // Als een VIJAND geraakt wordt (dus niet de speler), spawn dan direct rode bloedspetters op de trefferplek!
         if (GetComponent<AstronautController>() == null)
         {
             EnsurePrefabsCached();
             if (cachedBloodSpray != null)
             {
                 GameObject hitBlood = Instantiate(cachedBloodSpray, transform.position + Vector3.up * 1.2f, Quaternion.identity);
-                EnforceBloodColor(hitBlood);
-                Destroy(hitBlood, 2f);
+                EnforceBloodColor(hitBlood); // Garandeer dat het bloed rood kleurt.
+                Destroy(hitBlood, 2f);       // Ruim het particle object na 2 seconden op om geheugen te besparen.
             }
         }
 
+        // Stuur event naar de UI healthbars dat de HP is aangepast.
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
+        // Check of we dood zijn gegaan door deze klap.
         if (currentHealth <= 0)
         {
             Die();
         }
     }
 
+    // Wordt aangeroepen wanneer de speler een Medkit of Health Pickup oppakt.
     public void Heal(int amount)
     {
         if (isDead) return;
@@ -92,27 +110,31 @@ public class HealthSystem : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
-        SpawnBloodSpatter();
+        SpawnBloodSpatter(); // Grote bloedexplosie bij overlijden.
         SFXManager.Instance?.PlayAlienDeath();
 
+        // Check of het de SPELER is die stierf
         AstronautController playerController = GetComponent<AstronautController>();
         if (playerController != null)
         {
-            playerController.SetDead();
-            StartCoroutine(PlayerDeathSequence());
+            playerController.SetDead(); // Stop speler besturing
+            StartCoroutine(PlayerDeathSequence()); // Start camera val-animatie
         }
         else
         {
+            // Het is een VIJAND die sterft:
             OnDeath?.Invoke();
 
-            // DROP EEN MUNT ALS DE VIJAND DOODGAAT
+            // 1. DROP EEN MUNTJE ($) (EXAMEN TIP):
+            // We maken dynamisch een nieuw GameObject aan op de sterfplek en geven hem het CoinPickup script.
             GameObject coinObj = new GameObject("DroppedCoin");
             coinObj.transform.position = transform.position + Vector3.up * 0.5f;
             coinObj.AddComponent<CoinPickup>();
 
-            // MELD AAN WAVE MANAGER DAT VIJAND IS GESTORVEN
+            // 2. MELD AAN DE WAVEMANAGER DAT DEZE ALIEN DOOD IS:
             WaveManager.Instance?.OnEnemyKilled(this);
 
+            // Schakel loop-AI (NavMeshAgent) en colliders uit zodat hij levenloos neervalt (ragdoll).
             NavMeshAgent agent = GetComponent<NavMeshAgent>();
             if (agent != null) agent.enabled = false;
 
@@ -122,10 +144,12 @@ public class HealthSystem : MonoBehaviour
                 c.enabled = false;
             }
 
+            // Ruim het lijk na 3 seconden op uit het level.
             Destroy(gameObject, 3f);
         }
     }
 
+    // Coroutine die de camera van de speler langzaam naar de grond laat vallen bij een Game Over.
     private System.Collections.IEnumerator PlayerDeathSequence()
     {
         Transform cam = null;
@@ -138,7 +162,7 @@ public class HealthSystem : MonoBehaviour
         float elapsed = 0f;
         float deathDuration = 2f;
         Quaternion startRot = cam != null ? cam.localRotation : Quaternion.identity;
-        Quaternion endRot = Quaternion.Euler(45f, startRot.eulerAngles.y + 15f, 25f);
+        Quaternion endRot = Quaternion.Euler(45f, startRot.eulerAngles.y + 15f, 25f); // Schuine invalshoek
 
         while (elapsed < deathDuration)
         {
@@ -150,12 +174,13 @@ public class HealthSystem : MonoBehaviour
                 cam.localRotation = Quaternion.Slerp(startRot, endRot, t);
                 cam.localPosition += Vector3.down * Time.unscaledDeltaTime * 0.3f;
             }
-            yield return null;
+            yield return null; // Wacht tot de volgende frame.
         }
 
-        OnDeath?.Invoke();
+        OnDeath?.Invoke(); // Trigger Game Over scherm.
     }
 
+    // Spawnt alle bloed-prefabs (sprays en brokjes) tegelijk bij dood.
     private void SpawnBloodSpatter()
     {
         EnsurePrefabsCached();
@@ -188,6 +213,7 @@ public class HealthSystem : MonoBehaviour
         }
     }
 
+    // Dwingt alle materialen van het bloed-effect om dieprood te zijn.
     private void EnforceBloodColor(GameObject fx)
     {
         if (fx == null) return;

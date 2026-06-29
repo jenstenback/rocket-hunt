@@ -1,61 +1,67 @@
 using UnityEngine;
 
-/* ==========================================================================================
+/* =====================================================================================================================
  * SCRIPT: ShootingSystem.cs
- * DOEL: Beheert wapenacties, richten (aiming), terugslag (recoil) en hit-registratie.
- * UITLEG VOOR EXAMEN/PRESENTATIE:
- * Dit script combineert 'Raycasting' met fysieke kogel-tracers. Bij het vuren schieten we
- * een Raycast vanuit het midden van het scherm (ViewportPointToRay 0.5, 0.5) om exact
- * te bepalen waar de kogel heen moet vliegen. Verder gebruiken we Camera Field of View (FOV)
- * interpolatie (Mathf.Lerp) om een vloeiende GTA/Over-the-Shoulder aim-zoom te creëren.
- * ========================================================================================== */
+ * DOEL: Beheert het wapen, richten (GTA-style camera zoom), terugslag (recoil), hitregistratie en wapen-vergrendeling.
+ * 
+ * EXAMEN / PRESENTATIE UITLEG:
+ * 1. Raycasting (Laser-meting): Wanneer de speler schiet, schieten we een onzichtbare laserlijn ('Ray') vanuit exact
+ *    het midden van het scherm (Viewport point 0.5, 0.5). Waar deze lijn een object raakt, is het doelwit. Vanaf de 
+ *    loop van het geweer ('firePoint') sturen we vervolgens de kogel precies naar dat raakpunt toe.
+ * 2. FOV Interpolatie (Lerp): Bij het richten met de rechtermuisknop veranderen we de Field of View (FOV) van de camera 
+ *    vloeiend van 60 naar 40 via 'Mathf.Lerp'. Dit geeft een cinematisch en soepel inzoomeffect.
+ * 3. Wapen Vergrendeling in LateUpdate: Om te voorkomen dat animaties of fysica het geweer laten zweven, zetten we 
+ *    het geweer aan het eind van elke frame exact terug op zijn opgeslagen handpositie.
+ * ===================================================================================================================== */
 
 public class ShootingSystem : MonoBehaviour
 {
-    [Header("Gun Settings")]
-    public int damage = 25;
-    public float range = 100f;
-    public float fireRate = 0.5f;
+    [Header("Wapen Instellingen (Gun Settings)")]
+    public int damage = 25;              // Schade per kogel (wordt na elke wave met 1.5x vermenigvuldigd!).
+    public float range = 100f;           // Maximaal bereik van de raycast/kogel.
+    public float fireRate = 0.5f;        // Tijd in seconden tussen twee schoten in.
 
-    [Header("Gun References")]
-    public Camera mainCamera;
-    public Transform firePoint;
-    public GameObject bulletPrefab;
-    public float bulletSpeed = 50f;
+    [Header("Wapen Referenties")]
+    public Camera mainCamera;            // Referentie naar de hoofdcamera van de speler.
+    public Transform firePoint;          // De punt van de loop waar de fysieke kogel uit spawnt.
+    public GameObject bulletPrefab;      // Het kogel object dat we instantiëren (spawnen).
+    public float bulletSpeed = 50f;      // De vliegsnelheid van de kogel.
 
-    [Header("Effects & Animation")]
-    public ParticleSystem muzzleFlash;
-    public AudioSource shootSound;
-    public AudioClip hitSound;           // "Tik" geluid bij treffer
+    [Header("Effecten & Animatie")]
+    public ParticleSystem muzzleFlash;   // Vlam-effect bij de loop tijdens het schieten.
+    public AudioSource shootSound;       // Schietgeluid.
+    public AudioClip hitSound;           // Geluidje ('tik') wanneer je een vijand raakt.
     private AudioSource audioSource;
-    public Animator playerAnimator;
+    public Animator playerAnimator;      // Referentie naar de speler animator voor schiet-animaties.
 
-    [Header("Aiming (GTA Style)")]
-    public float normalFOV = 60f;
-    public float aimFOV = 40f;
-    public float aimSpeed = 10f;
+    [Header("Richten / Aiming (GTA Style)")]
+    public float normalFOV = 60f;        // Standaard gezichtsveld van de camera.
+    public float aimFOV = 40f;           // Ingezoomd gezichtsveld bij het richten.
+    public float aimSpeed = 10f;         // Hoe snel de camera in- en uitzoomt.
     private bool isAiming = false;
 
-    [Header("Recoil (Terugslag)")]
-    public float recoilAmount = 2f;       // Hoeveel graden de camera omhoog schopt
-    public float recoilRecoverySpeed = 5f; // Hoe snel hij weer recht gaat
+    [Header("Terugslag (Recoil)")]
+    public float recoilAmount = 2f;       // Hoeveel graden de camera omhoog schopt bij elk schot.
+    public float recoilRecoverySpeed = 5f; // Hoe snel de camera weer automatisch naar beneden herstelt.
     private float currentRecoil = 0f;
     private Transform cameraTransform;
 
-    // Hitmarker systeem
-    private bool hitRegistered = false;    // Was er een treffer?
-    private bool headshotRegistered = false; // Was het een headshot?
+    // Interne variabelen voor de Hitmarker (rood kruisje in beeld bij treffer)
+    private bool hitRegistered = false;
+    private bool headshotRegistered = false;
     private float hitmarkerTimer = 0f;
-    private float hitmarkerDuration = 0.3f; // Hoe lang het rode/gele kruisje zichtbaar is
+    private float hitmarkerDuration = 0.3f;
 
-    private float nextTimeToFire = 0f;
+    private float nextTimeToFire = 0f;   // Houdt bij wanneer er weer geschoten mag worden.
 
+    // Variabelen om het wapen muurvast in de hand te vergrendelen
     private Vector3 initialLocalPos;
     private Quaternion initialLocalRot;
     private Transform parentHand;
 
     void Start()
     {
+        // Sla de beginpositie en rotatie van het wapen in de handpalm op bij de start.
         initialLocalPos = transform.localPosition;
         initialLocalRot = transform.localRotation;
         parentHand = transform.parent;
@@ -68,7 +74,9 @@ public class ShootingSystem : MonoBehaviour
 
     void LateUpdate()
     {
-        // Garandeer dat het wapen ROTSVAST in de rechterhand blijft en nooit kan wegstuiten of zweven
+        // EXAMEN TIP (Wapen Vergrendeling):
+        // LateUpdate draait helemaal aan het einde van de frame. Mocht de ragdoll-fysica of een loop-animatie
+        // proberen het geweer uit positie te drukken, dan zetten wij hem hier wiskundig precies terug op zijn plek!
         if (parentHand != null && transform.parent == parentHand)
         {
             transform.localPosition = initialLocalPos;
@@ -78,24 +86,24 @@ public class ShootingSystem : MonoBehaviour
 
     void Update()
     {
-        // Doe niets als de game gepauzeerd is of nog niet is gestart
+        // Doe niets als het spel gepauzeerd is of nog niet gestart.
         if (Time.timeScale == 0f) return;
 
-        // 1. Richten (Rechtermuisknop ingedrukt houden)
+        // 1. Richten: Controleer of de rechtermuisknop ('Fire2') ingedrukt wordt gehouden.
         isAiming = Input.GetButton("Fire2");
 
-        // --- FIX 5: Animator check zonder try-catch ---
         if (playerAnimator != null && playerAnimator.runtimeAnimatorController != null)
             playerAnimator.SetBool("Aiming", isAiming);
 
-        // 2. Camera soepel in- en uitzoomen
+        // 2. Camera FOV Interpolatie (EXAMEN TIP):
+        // Mathf.Lerp berekent vloeiend tussen de huidige FOV en de doel-FOV. Dit zorgt voor een zachte zoom.
         if (mainCamera != null)
         {
             float targetFOV = isAiming ? aimFOV : normalFOV;
             mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, targetFOV, Time.deltaTime * aimSpeed);
         }
 
-        // 3. Recoil herstel (camera gaat langzaam terug naar normaal na terugslag)
+        // 3. Recoil Herstel: Als de camera door terugslag omhoog staat, zak dan langzaam terug.
         if (currentRecoil > 0f)
         {
             float recoilThisFrame = Mathf.Min(currentRecoil, recoilRecoverySpeed * Time.deltaTime);
@@ -113,56 +121,56 @@ public class ShootingSystem : MonoBehaviour
             headshotRegistered = false;
         }
 
-        // 5. Schieten (Linkermuisknop)
+        // 5. Schieten: Als op linkermuisknop ('Fire1') wordt gedrukt én de vuursnelheid-timer is verstreken.
         if (Input.GetButtonDown("Fire1") && Time.time >= nextTimeToFire)
         {
-            nextTimeToFire = Time.time + fireRate;
+            nextTimeToFire = Time.time + fireRate; // Zet de volgende toegestane schiettijd vast.
             Shoot();
         }
     }
 
     void Shoot()
     {
-        // 1. Effecten en animatie
+        // 1. Speel visuele effecten en geluiden af
         if (muzzleFlash != null) muzzleFlash.Play();
         if (shootSound != null) shootSound.Play();
         SFXManager.Instance?.PlayLaser();
 
-        // --- FIX 5: Animatie zonder try-catch ---
         if (playerAnimator != null && playerAnimator.runtimeAnimatorController != null)
         {
             playerAnimator.SetTrigger("Attack");
         }
 
-        // 2. Recoil: schop camera omhoog
+        // 2. Voeg terugslag toe aan de camera
         ApplyRecoil();
 
-        // 3. Bereken doelwit (negeert de speler zelf)
+        // 3. Raycast Richting Bepalen (EXAMEN TIP):
+        // We schieten een onzichtbare laserlijn (Ray) vanuit exact het midden van de camera/scherm (0.5, 0.5).
         Ray ray = mainCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+        Vector3 targetPoint = ray.GetPoint(range); // Standaard doelwit op 100 meter afstand als we niets raken.
 
-        // Schiet altijd recht naar het midden van het scherm (richtkruis), ook zonder richten!
-        Vector3 targetPoint = ray.GetPoint(range);
-
+        // Haal alle objecten op die de raycast raakt binnen het bereik.
         RaycastHit[] hits = Physics.RaycastAll(ray, range);
         float closestDistance = Mathf.Infinity;
 
+        // Zoek het dichtstbijzijnde geraakte object (negeer de speler zelf).
         foreach (RaycastHit hit in hits)
         {
             if (hit.transform.CompareTag("Player") || hit.transform.GetComponentInParent<AstronautController>() != null) continue;
             if (hit.distance < closestDistance)
             {
                 closestDistance = hit.distance;
-                targetPoint = hit.point;
+                targetPoint = hit.point; // Dit is de exacte 3D-coördinaat waar ons richtkruis naar wijst!
             }
         }
 
-        // 4. Kogel aanmaken en afvuren
+        // 4. Kogel spawnen en richting het doelwit sturen
         Vector3 direction = targetPoint - firePoint.position;
 
         if (bulletPrefab != null && firePoint != null)
         {
             GameObject currentBullet = Instantiate(bulletPrefab, firePoint.position, Quaternion.identity);
-            currentBullet.transform.forward = direction.normalized;
+            currentBullet.transform.forward = direction.normalized; // Draai kogel met de neus naar het doel.
 
             Bullet bulletScript = currentBullet.GetComponent<Bullet>();
             if (bulletScript == null) bulletScript = currentBullet.AddComponent<Bullet>();
@@ -188,57 +196,40 @@ public class ShootingSystem : MonoBehaviour
         }
     }
 
-    // Wordt aangeroepen vanuit Bullet.cs als hij iets raakt
+    // Wordt aangeroepen door Bullet.cs wanneer een kogel een vijand raakt om het hitmarker kruisje te tonen.
     public void RegisterHit(bool isHeadshot = false)
     {
         hitRegistered = true;
         headshotRegistered = isHeadshot;
         hitmarkerTimer = hitmarkerDuration;
 
-        // Speel "tik" geluid af
-        if (hitSound != null && audioSource != null)
+        if (audioSource != null && hitSound != null)
+        {
             audioSource.PlayOneShot(hitSound);
-        SFXManager.Instance?.PlayHit(isHeadshot);
+        }
     }
 
-    // Tekent de crosshair + hitmarker + headshot tekst op het scherm
+    // Tekent de crosshair (richtkruis) en hitmarker op het scherm.
     void OnGUI()
     {
-        // Crosshair is altijd zichtbaar (zowel vanuit de heup als tijdens het richten!)
-        float crosshairSize = isAiming ? 24f : 18f;
-        float cx = (Screen.width / 2f) - (crosshairSize / 2f);
-        float cy = (Screen.height / 2f) - (crosshairSize / 2f);
+        if (Time.timeScale == 0f) return;
 
-        GUIStyle crosshairStyle = new GUIStyle(GUI.skin.label);
-        crosshairStyle.fontSize = isAiming ? 26 : 20;
-        crosshairStyle.alignment = TextAnchor.MiddleCenter;
-        crosshairStyle.fontStyle = FontStyle.Bold;
+        float size = isAiming ? 16f : 24f;
+        float x = (Screen.width - size) / 2f;
+        float y = (Screen.height - size) / 2f;
 
-        // Normale kleur = groen, treffer = rood, headshot = geel
-        if (hitmarkerTimer > 0f && headshotRegistered)
-            crosshairStyle.normal.textColor = Color.yellow;
-        else if (hitmarkerTimer > 0f && hitRegistered)
-            crosshairStyle.normal.textColor = Color.red;
-        else
-            crosshairStyle.normal.textColor = Color.green;
+        GUI.color = new Color(1f, 1f, 1f, 0.8f);
+        GUI.DrawTexture(new Rect(x, y, size, size), Texture2D.whiteTexture);
 
-        GUI.Label(new Rect(cx, cy, crosshairSize, crosshairSize), "+", crosshairStyle);
-
-        // Headshot tekst bovenaan het scherm
-        if (hitmarkerTimer > 0f && headshotRegistered)
+        // Teken een rood (of geel bij headshot) kruisje als we net iets geraakt hebben!
+        if (hitRegistered)
         {
-            GUIStyle headshotStyle = new GUIStyle(GUI.skin.label);
-            headshotStyle.fontSize = 36;
-            headshotStyle.alignment = TextAnchor.MiddleCenter;
-            headshotStyle.fontStyle = FontStyle.Bold;
-            headshotStyle.normal.textColor = Color.yellow;
-
-            // Fade-out effect: tekst wordt transparanter naarmate de timer afloopt
-            Color c = headshotStyle.normal.textColor;
-            c.a = hitmarkerTimer / hitmarkerDuration;
-            headshotStyle.normal.textColor = c;
-
-            GUI.Label(new Rect(0, Screen.height / 2f - 80f, Screen.width, 50f), "🎯 HEADSHOT!", headshotStyle);
+            GUI.color = headshotRegistered ? Color.yellow : Color.red;
+            float hitSize = size * 1.5f;
+            float hx = (Screen.width - hitSize) / 2f;
+            float hy = (Screen.height - hitSize) / 2f;
+            GUI.DrawTexture(new Rect(hx, hy, hitSize, hitSize), Texture2D.whiteTexture);
         }
+        GUI.color = Color.white;
     }
 }

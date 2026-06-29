@@ -3,24 +3,36 @@ using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 
-/* ==========================================================================================
+/* =====================================================================================================================
  * SCRIPT: WaveManager.cs
- * DOEL: Beheert de golven van vijanden en spawnt mensachtige aliens die steeds groter worden.
- * ========================================================================================== */
+ * DOEL: Beheert de golven (waves) van aliens, schaalt de moeilijkheidsgraad en spawnt vijanden op veilige posities.
+ * 
+ * EXAMEN / PRESENTATIE UITLEG:
+ * 1. Singleton Design Pattern: Door 'public static WaveManager Instance' kan elk ander script in de game (bijv. een 
+ *    stervende alien) direct communiceren met deze manager via 'WaveManager.Instance.OnEnemyKilled()'.
+ * 2. Dynamische Schaling (Balans): Na elke wave verdubbelen we de stats van de aliens ('statMultiplier *= 2'). Om het eerlijk 
+ *    te houden, verhogen we tegelijk de schade van het wapen van de speler met 1.5x.
+ * 3. NavMesh Veilige Spawning: Als nieuwe aliens spawnen, zoeken we via een lus ('for attempt < 15') een geldige plek op 
+ *    het looprooster (NavMesh) die minstens 15 meter van de speler verwijderd is. Zo spant er nooit een monster in je gezicht!
+ * ===================================================================================================================== */
 
 public class WaveManager : MonoBehaviour
 {
+    // Singleton patroon: zorgt dat er altijd maar precies 1 WaveManager actief is in het spel.
     public static WaveManager Instance { get; private set; }
 
-    private List<HealthSystem> activeEnemies = new List<HealthSystem>();
-    private GameObject[] humanoidPrefabs;
+    private List<HealthSystem> activeEnemies = new List<HealthSystem>(); // Lijst met alle nog levende monsters in de wave.
+    private GameObject[] humanoidPrefabs;                                // Array met de in geladen alien 3D modellen.
     
-    private int waveNumber = 1;
-    private int statMultiplier = 1;
-    private bool isSpawning = false;
+    private int waveNumber = 1;         // De huidige golf (begint bij 1).
+    private int statMultiplier = 1;     // Wordt elke wave x2 gedaan (Wave 1 = 1x, Wave 2 = 2x, Wave 3 = 4x).
+    private bool isSpawning = false;    // Voorkomt dat er dubbele waves tegelijk starten.
+    
+    // UI Banner variabelen
     private float bannerEndTime = 0f;
     private string bannerText = "";
 
+    // Zorgt dat deze manager automatisch in het level wordt aangemaakt zodra het spel laadt.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoInit()
     {
@@ -37,6 +49,7 @@ public class WaveManager : MonoBehaviour
 
     void Start()
     {
+        // Laad de 3 prefabs van de mensachtige aliens uit de 'Resources' map.
         GameObject a = Resources.Load<GameObject>("AlienA_Pr");
         GameObject b = Resources.Load<GameObject>("AlienB_Pr");
         GameObject c = Resources.Load<GameObject>("AlienC_Pr");
@@ -50,9 +63,10 @@ public class WaveManager : MonoBehaviour
         StartCoroutine(InitialSetupRoutine());
     }
 
+    // Zoekt bij het opstarten alle bestaande monsters op de map en voegt ze toe aan de levende lijst.
     IEnumerator InitialSetupRoutine()
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.5f); // Wacht kort tot alle andere scripts zijn opgeladen.
 
         EnemyAI[] existingAI = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
         foreach (EnemyAI ai in existingAI)
@@ -64,33 +78,37 @@ public class WaveManager : MonoBehaviour
             }
         }
 
-        // Wave 1 bij start: iets kleinere mensachtige aliens
+        // Spawn extra vijanden om Wave 1 mee te beginnen.
         if (humanoidPrefabs.Length > 0)
         {
             SpawnAlienBatch(6, statMultiplier);
         }
     }
 
+    // EXAMEN TIP (Event communicatie):
+    // Deze methode wordt aangeroepen door HealthSystem.Die() wanneer een alien sterft.
     public void OnEnemyKilled(HealthSystem enemy)
     {
         if (activeEnemies.Contains(enemy))
         {
-            activeEnemies.Remove(enemy);
+            activeEnemies.Remove(enemy); // Haal de dode alien uit de lijst.
         }
 
+        // Als alle aliens van deze golf dood zijn én we zijn nog niet bezig met een nieuwe golf laden:
         if (activeEnemies.Count == 0 && !isSpawning)
         {
-            StartCoroutine(SpawnNextWaveRoutine());
+            StartCoroutine(SpawnNextWaveRoutine()); // Start de volgende wave!
         }
     }
 
+    // Coroutine die de volgende wave voorbereidt en aftelt.
     IEnumerator SpawnNextWaveRoutine()
     {
         isSpawning = true;
-        waveNumber++;
-        statMultiplier *= 2; // Verdubbel stats!
+        waveNumber++;          // Ga naar Wave 2, 3, 4 etc.
+        statMultiplier *= 2;   // EXAMEN TIP: Verdubbel de HP en Attack Damage van de komende monsters!
 
-        // Verhoog wapendmg van de speler met x1.5 per wave
+        // Zoek het schietsysteem van de speler en verhoog zijn kogel-schade met 1.5x (balans).
         ShootingSystem ss = FindFirstObjectByType<ShootingSystem>();
         int newDmg = 25;
         if (ss != null)
@@ -99,19 +117,22 @@ public class WaveManager : MonoBehaviour
             newDmg = ss.damage;
         }
 
+        // Toon de rode waarschuwingsbanner op het scherm gedurende 5 seconden.
         bannerText = "⚠️ GOLF " + waveNumber + " GEACTIVEERD!\nAliens 2x sterker | Wapen Damage verhoogd (x1.5 -> " + newDmg + " dmg)!";
         bannerEndTime = Time.unscaledTime + 5f;
 
         SFXManager.Instance?.PlayExplosion();
 
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(3f); // Geef de speler 3 seconden adempauze.
 
+        // Hoe verder in het spel, hoe meer aliens er spawnen (6 + 2 per wave).
         int countToSpawn = 6 + (waveNumber * 2);
         SpawnAlienBatch(countToSpawn, statMultiplier);
 
         isSpawning = false;
     }
 
+    // Spawnt een groep nieuwe aliens op veilige locaties.
     void SpawnAlienBatch(int count, int multiplier)
     {
         if (humanoidPrefabs == null || humanoidPrefabs.Length == 0) return;
@@ -133,6 +154,10 @@ public class WaveManager : MonoBehaviour
             
             NavMeshHit navHit = new NavMeshHit();
             bool foundValid = false;
+
+            // EXAMEN TIP (Veilige Spawning Algoritme):
+            // Probeer maximaal 15 keer een willekeurig punt te vinden in een cirkel rondom de speler (25m tot 48m ver).
+            // Controleer via NavMesh.SamplePosition of dat punt op loopbare vloer ligt én ver genoeg is (>= 15m).
             for (int attempt = 0; attempt < 15; attempt++)
             {
                 Vector2 randomCircle = Random.insideUnitCircle.normalized * Random.Range(25f, 48f);
@@ -142,57 +167,60 @@ public class WaveManager : MonoBehaviour
                     if (Vector3.Distance(navHit.position, centerPos) >= 15f)
                     {
                         foundValid = true;
-                        break;
+                        break; // Veilig punt gevonden! Stop met zoeken.
                     }
                 }
             }
-            if (!foundValid) continue; // Alleen spawnen als we zeker weten dat het op de NavMesh en op veilige afstand is!
+            if (!foundValid) continue; // Geen veilige plek gevonden? Sla deze alien over.
 
+            // Instantiate (spawn) de alien op het gevonden NavMesh punt.
             GameObject newAlien = Instantiate(prefab, navHit.position, Quaternion.identity);
-                newAlien.name = "HumanoidAlien_Wave" + waveNumber + "_" + i;
+            newAlien.name = "HumanoidAlien_Wave" + waveNumber + "_" + i;
 
-                // SPELERSVERZOEK: Wave 1 is klein (0.75x), vanaf Wave 2 worden ze flink groter (1.3x, 1.7x, etc.)!
-                float scale = (waveNumber <= 1) ? 0.75f : Mathf.Min(1.3f + (waveNumber - 2) * 0.4f, 2.5f);
-                newAlien.transform.localScale = Vector3.one * scale;
+            // SPELERSVERZOEK: Wave 1 is klein (0.75x), vanaf Wave 2 worden ze flink groter en angstaanjagender!
+            float scale = (waveNumber <= 1) ? 0.75f : Mathf.Min(1.3f + (waveNumber - 2) * 0.4f, 2.5f);
+            newAlien.transform.localScale = Vector3.one * scale;
 
-                CapsuleCollider col = newAlien.GetComponent<CapsuleCollider>();
-                if (col == null) col = newAlien.AddComponent<CapsuleCollider>();
-                col.height = 2f;
-                col.radius = 0.45f;
-                col.center = new Vector3(0, 1f, 0);
+            // Voeg fysieke en AI componenten toe en schaal ze mee met de multiplier
+            CapsuleCollider col = newAlien.GetComponent<CapsuleCollider>();
+            if (col == null) col = newAlien.AddComponent<CapsuleCollider>();
+            col.height = 2f;
+            col.radius = 0.45f;
+            col.center = new Vector3(0, 1f, 0);
 
-                NavMeshAgent agent = newAlien.GetComponent<NavMeshAgent>();
-                if (agent == null) agent = newAlien.AddComponent<NavMeshAgent>();
-                agent.speed = 4f + (multiplier * 0.5f);
-                agent.acceleration = 12f;
-                agent.radius = 0.4f * scale;
-                agent.height = 1.8f * scale;
+            NavMeshAgent agent = newAlien.GetComponent<NavMeshAgent>();
+            if (agent == null) agent = newAlien.AddComponent<NavMeshAgent>();
+            agent.speed = 4f + (multiplier * 0.5f);
+            agent.acceleration = 12f;
+            agent.radius = 0.4f * scale;
+            agent.height = 1.8f * scale;
 
-                HealthSystem hs = newAlien.GetComponent<HealthSystem>();
-                if (hs == null) hs = newAlien.AddComponent<HealthSystem>();
-                hs.maxHealth = 80 * multiplier;
+            HealthSystem hs = newAlien.GetComponent<HealthSystem>();
+            if (hs == null) hs = newAlien.AddComponent<HealthSystem>();
+            hs.maxHealth = 80 * multiplier; // Verdubbelde HP per wave!
 
-                HeadshotCollider head = newAlien.GetComponentInChildren<HeadshotCollider>();
-                if (head == null)
-                {
-                    HeadshotCollider hc = newAlien.AddComponent<HeadshotCollider>();
-                    hc.headshotMultiplier = 2;
-                }
+            HeadshotCollider head = newAlien.GetComponentInChildren<HeadshotCollider>();
+            if (head == null)
+            {
+                HeadshotCollider hc = newAlien.AddComponent<HeadshotCollider>();
+                hc.headshotMultiplier = 2;
+            }
 
-                EnemyAI ai = newAlien.GetComponent<EnemyAI>();
-                if (ai == null) ai = newAlien.AddComponent<EnemyAI>();
-                ai.chaseRange = 60f;
-                ai.attackRange = 3.5f * (scale * 0.8f); // Grotere aliens auotmatisch iets grotere attack range
-                ai.attackDamage = 25 * multiplier;
-                ai.chaseSpeed = 6f + (multiplier * 0.5f);
+            EnemyAI ai = newAlien.GetComponent<EnemyAI>();
+            if (ai == null) ai = newAlien.AddComponent<EnemyAI>();
+            ai.chaseRange = 500f; // Blijft speler overal achtervolgen
+            ai.attackRange = 3.5f * (scale * 0.8f);
+            ai.attackDamage = 25 * multiplier; // Verdubbelde attack damage per wave!
+            ai.chaseSpeed = 6f + (multiplier * 0.5f);
 
-                Animator anim = newAlien.GetComponentInChildren<Animator>();
-                if (anim != null) ai.animator = anim;
+            Animator anim = newAlien.GetComponentInChildren<Animator>();
+            if (anim != null) ai.animator = anim;
 
-                activeEnemies.Add(hs);
+            activeEnemies.Add(hs); // Voeg hem toe aan de actieve lijst.
         }
     }
 
+    // Tekent de rode wave-banner bovenin het scherm.
     void OnGUI()
     {
         if (Time.unscaledTime < bannerEndTime && GameManager.Instance != null && GameManager.Instance.gameStarted)
