@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 7ac002f469caa48fea5e57945c2dab27
+labels:
+- FirstPerson
+- Gun
+- Shooter
+- Weapon
+timeCreated: 1482411180
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Prefabs/Handle_01.prefab
+  uploadId: 483998

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 818626e33dc2f4545807dc8242e37801
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 19537
+  packageName: Space Cargo Ship
+  packageVersion: 1
+  assetPath: Assets/Cargo Ship/Materials/Cargo_Ship_TubeText.mat
+  uploadId: 21499

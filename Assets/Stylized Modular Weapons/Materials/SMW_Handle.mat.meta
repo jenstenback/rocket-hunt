@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 856c027414c6b4ea0a80f53421938bad
+timeCreated: 1482411158
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Materials/SMW_Handle.mat
+  uploadId: 483998

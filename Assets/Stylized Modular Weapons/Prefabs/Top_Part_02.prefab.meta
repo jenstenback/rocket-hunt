@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: be33420f45e16452aa0872bf42217fa4
+labels:
+- FirstPerson
+- Gun
+- Shooter
+- Weapon
+timeCreated: 1482318929
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Prefabs/Top_Part_02.prefab
+  uploadId: 483998

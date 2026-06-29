@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 885083d3c5e32ae40a7352b9eab294ed
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 19537
+  packageName: Space Cargo Ship
+  packageVersion: 1
+  assetPath: Assets/Cargo Ship/Materials/Cargo_Ship_Panel_Text.mat
+  uploadId: 21499

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dda200532f2904f439b53a8a05a9bac8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 19537
+  packageName: Space Cargo Ship
+  packageVersion: 1
+  assetPath: Assets/Cargo Ship/Materials/door_bind_001.mat
+  uploadId: 21499

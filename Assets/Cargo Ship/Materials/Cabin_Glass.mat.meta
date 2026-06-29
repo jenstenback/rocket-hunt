@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6ae6a9534add11f43a0a9768f1a331c7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 19537
+  packageName: Space Cargo Ship
+  packageVersion: 1
+  assetPath: Assets/Cargo Ship/Materials/Cabin_Glass.mat
+  uploadId: 21499

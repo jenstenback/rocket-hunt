@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 36e8daa71a371455e8c832bee5e481b2
+labels:
+- FirstPerson
+- Gun
+- Shooter
+- Weapon
+timeCreated: 1482415304
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Prefabs/Your Weapon Example 8.prefab
+  uploadId: 483998

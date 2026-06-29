@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a31aa0ed1908eff43b8baaa4c45a100b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 19537
+  packageName: Space Cargo Ship
+  packageVersion: 1
+  assetPath: Assets/Cargo Ship/Materials/Ship_Energy_Cont_Text.mat
+  uploadId: 21499

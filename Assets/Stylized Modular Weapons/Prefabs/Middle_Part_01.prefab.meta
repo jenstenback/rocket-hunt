@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: ba5bd9cc6d29741f9a5b17e8c6d62d20
+labels:
+- FirstPerson
+- Gun
+- Shooter
+- Weapon
+timeCreated: 1482338829
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Prefabs/Middle_Part_01.prefab
+  uploadId: 483998

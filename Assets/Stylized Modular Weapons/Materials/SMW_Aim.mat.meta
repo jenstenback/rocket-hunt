@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0313bafe872ee48149167d970d82af97
+timeCreated: 1482409358
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66573
+  packageName: Stylized Modular Weapons
+  packageVersion: 4.0
+  assetPath: Assets/Stylized Modular Weapons/Materials/SMW_Aim.mat
+  uploadId: 483998
