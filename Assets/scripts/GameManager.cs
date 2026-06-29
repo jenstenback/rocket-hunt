@@ -347,6 +347,14 @@ public class GameManager : MonoBehaviour
         SFXManager.Instance?.PlayPickup();
     }
 
+    // Alias methode die door CollectibleSystem.cs wordt aangeroepen.
+    public void CollectPart()
+    {
+        partsCollected++;
+        SFXManager.Instance?.PlayPickup();
+    }
+
+
     // Publieke methode om 10 dollar/munten toe te voegen.
     public void AddCoin()
     {
